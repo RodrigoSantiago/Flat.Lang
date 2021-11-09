@@ -1,2 +1,2 @@
 # Flat.Lang
-A standard Object Oriented Language
+A standard Object-Oriented Language
