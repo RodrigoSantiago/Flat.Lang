@@ -3,7 +3,7 @@ package flat.lang.data;
 import java.util.*;
 
 /**
- * Config.JSON
+ * Config.json
  * {
  *     "name" : "Library Name",
  *     "description" : "Library Description",
