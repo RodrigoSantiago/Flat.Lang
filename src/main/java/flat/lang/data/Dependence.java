@@ -2,6 +2,9 @@ package flat.lang.data;
 
 import java.util.Objects;
 
+/**
+ * Dependence is a request for a Library at some Version
+ */
 public class Dependence {
     private final String name;
     private final VersionRequest version;

@@ -2,6 +2,14 @@ package flat.lang.data;
 
 import java.util.Objects;
 
+/**
+ * A Version is a increasing value that represent a Library update
+ *
+ * 1.0.0 - Specific Version
+ * 1.0.* - Specific major and minor, but any revision
+ * 1.*   - Specific major, but any minor or revision
+ * *     - Any version
+ */
 public class Version {
     private final int major;
     private final int minor;

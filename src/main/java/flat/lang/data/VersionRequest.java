@@ -1,5 +1,17 @@
 package flat.lang.data;
 
+
+/**
+ * A VersionRequest is request for some Library Version
+ *
+ * 1.0.0  - Specific Version
+ * 1.0.*  - Specific major and minor, but any revision
+ * 1.*    - Specific major, but any minor or revision
+ * *      - Any version
+ *
+ * >1.0.0 - Greater or Equal than a version
+ * <1.0.0 - Less or Equal than a version
+ */
 public class VersionRequest {
     private final int major;
     private final int minor;
