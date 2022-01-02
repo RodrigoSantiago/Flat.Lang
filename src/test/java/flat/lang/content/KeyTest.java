@@ -19,7 +19,7 @@ class KeyTest {
         String keyword = "###";
         Key actualKey = Key.readKey(keyword, 0, keyword.length());
 
-        assertEquals(Key.InvalidOp, actualKey, "Incorrect keyword found");
+        assertNull(actualKey, "Incorrect keyword found");
     }
 
     @Test

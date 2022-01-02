@@ -207,18 +207,18 @@ public class Key {
      * @param source String source
      * @param start Start index offset
      * @param end End index offset
-     * @return The Key found, or InvalidOp
+     * @return The Key found, or null
      */
     public static Key readKey(String source, int start, int end) {
         int h = 0;
         int length = end - start;
-        if (length <= 0 || length > 9) return InvalidOp;
+        if (length <= 0 || length > 9) return null;
 
         for (int i = 0; i < length; i++) {
             h = 31 * h + source.charAt(i);
         }
         Key key = keys.get(h);
-        return key != null && isEqual(key, source, start, end) ? key : InvalidOp;
+        return key != null && isEqual(key, source, start, end) ? key : null;
     }
 
     /**

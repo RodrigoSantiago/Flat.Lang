@@ -9,12 +9,13 @@ class TokenTest {
     @Test
     void properties() {
         String source = " token ";
-        Token token = new Token(source, 1, source.length() - 1);
+        Token token = new Token(source, 1, source.length() - 1, Key.Word);
 
         assertEquals(1, token.getStart(), "Invalid Start");
         assertEquals(5, token.getLength(), "Invalid Length");
         assertEquals(6, token.getEnd(), "Invalid End");
         assertSame(source, token.getSource(), "Invalid Source");
+        assertSame(Key.Word, token.getKey(), "Invalid Key");
     }
 
     @Test
@@ -56,10 +57,10 @@ class TokenTest {
 
         Token token4 = new Token(source1, 0, source1.length());
 
-        assertTrue(token1.equalsIgnoreCase(token2), "EqualsIgnoreCase should ignore uppercase differences");
-        assertTrue(token2.equalsIgnoreCase(token1), "EqualsIgnoreCase should ignore uppercase differences");
-        assertFalse(token3.equalsIgnoreCase(token1), "EqualsIgnoreCase should ignore length differences");
-        assertFalse(token3.equalsIgnoreCase(token2), "EqualsIgnoreCase should ignore length differences");
+        assertTrue(token1.equalsIgnoreCase(token2), "Invalid EqualsIgnoreCase");
+        assertTrue(token2.equalsIgnoreCase(token1), "Invalid EqualsIgnoreCase");
+        assertFalse(token3.equalsIgnoreCase(token1), "Invalid EqualsIgnoreCase");
+        assertFalse(token3.equalsIgnoreCase(token2), "Invalid EqualsIgnoreCase");
         assertTrue(token1.equalsIgnoreCase(token4), "Invalid EqualsIgnoreCase");
     }
 
@@ -94,10 +95,10 @@ class TokenTest {
 
         Token token4 = new Token(source1, 0, source1.length());
 
-        assertNotEquals(token1, token2, "Equals should not ignore case");
-        assertNotEquals(token2, token1, "Equals should be equivalent");
-        assertEquals(token3, token1, "Equals should work at different sources");
-        assertNotEquals(token3, token2, "Equals should work at different sources");
+        assertNotEquals(token1, token2, "Invalid Equals");
+        assertNotEquals(token2, token1, "Invalid Equals");
+        assertEquals(token3, token1, "Invalid Equals");
+        assertNotEquals(token3, token2, "Invalid Equals");
         assertEquals(token1, token4, "Invalid Equals");
 
         token1.hashCode();
@@ -154,5 +155,14 @@ class TokenTest {
 
         assertEquals(token1.toString(), "Happy Day", "Invalid toString");
         assertEquals(token2.toString(), "Happy Day", "Invalid toString");
+    }
+
+    @Test
+    void equalsString() {
+        String source = "Happy Day";
+        Token token = new Token(source, 0, source.length());
+
+        assertTrue(token.equalsString("Happy Day"), "Invalid EqualsString");
+        assertFalse(token.equalsString("Happy Day2"), "Invalid EqualsString");
     }
 }

@@ -11,8 +11,9 @@ public class Token {
     private Token next;
     private Token prev;
 
-    private Token parent;
     private Token child;
+    private Token parent;
+    private Token lastChild;
 
     private int hash;
 
@@ -63,6 +64,12 @@ public class Token {
         return child;
     }
 
+    public void setNextAsParent(Token blockLastChild) {
+        setChild(getNext());
+        this.next = null;
+        this.lastChild = blockLastChild;
+    }
+
     public void setChild(Token child) {
         this.child = child;
         if (this.child != null) {
@@ -72,6 +79,10 @@ public class Token {
 
     public Token getParent() {
         return parent;
+    }
+
+    public Key getKey() {
+        return key;
     }
 
     /**
@@ -104,6 +115,15 @@ public class Token {
             return false;
 
         }
+    }
+
+    public boolean equalsString(String str) {
+        if (str == null) return false;
+        if (length != str.length()) return false;
+        for (int i = 0; i < length; i++) {
+            if (source.charAt(start + i) != str.charAt(i)) return false;
+        }
+        return true;
     }
 
     @Override

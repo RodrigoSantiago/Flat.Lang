@@ -1,5 +1,7 @@
 package flat.lang.library;
 
+import flat.lang.data.Error;
+
 public class SourceFile {
 
     public void read() {
@@ -15,6 +17,10 @@ public class SourceFile {
     }
 
     public void replace(int start, int length, String replacement) {
+
+    }
+
+    public void addError(Error error) {
 
     }
 
