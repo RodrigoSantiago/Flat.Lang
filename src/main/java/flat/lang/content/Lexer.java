@@ -1,31 +1,30 @@
 package flat.lang.content;
 
-import flat.lang.data.Error;
-import flat.lang.data.ErrorLevel;
-import flat.lang.library.SourceFile;
-
+/**
+ * The initial reader, responsible for breaking the string into a token chain, facilitating further analysis
+ */
 public class Lexer {
 
-    private SourceFile sFile;
-    private String source;
+    private final String source;
     private int chr;
     private int nChr;
-    private int pChr;
     private int index;
     private int nextIndex;
-    private Token current;
 
-    public Lexer(SourceFile sFile, String source) {
-        this.sFile = sFile;
+    public Lexer(String source) {
         this.source = source;
         readNextChar();
     }
 
+    /**
+     * Execute the reading
+     * @return Start token chain
+     */
     public Token read() {
         Token start = new Token(source, 0, 0);
         Token token = start;
         while (!eof()) {
-            if (readNext(token, null)) {
+            if (readNext(token, null, null)) {
                 while (token.getNext() != null) {
                     token = token.getNext();
                 }
@@ -33,10 +32,10 @@ public class Lexer {
                 break;
             }
         }
-        return start.getNext();
+        return start.ownNext();
     }
 
-    boolean readNext(Token token, Token parent) {
+    private boolean readNext(Token prev, Token parent, Token owner) {
         while (!eof()) {
             if (isSpace(chr)) {
                 consumeSpaces();
@@ -52,63 +51,66 @@ public class Lexer {
 
             }
 
-            if (isBreakCharacter(parent)) {
+            if (isBreakCharacter(parent, owner)) {
                 return false;
 
-            } else if (chr == '{' || chr == '(' || chr == '[' || chr == '<') {
-                token.setNext(readNextBlock());
-                return true;
+            } else if (isOpener(chr) || (chr == '<' && !isOperator(nChr))) {
+                readNextBlock(prev, parent);
+
+            } else if (isCloser(chr) || (chr == '>' && parent != null && parent.getKey() == Key.Generic)) {
+                prev.setNext(readNextCloser());
+
             } else if (isLetter(chr) || (chr == ':' && nChr == ':' && isLetter(previewFutureNextChar()))) {
-                token.setNext(readNextWord());
-                return true;
+                prev.setNext(readNextWord());
+
             } else if (isNumber(chr)) {
-                token.setNext(readNextNumber());
-                return true;
-            } else if (isStringSplit(chr)) {
-                token.setNext(readNextString());
-                return true;
+                prev.setNext(readNextNumber());
+
+            } else if (isQuot(chr)) {
+                prev.setNext(readNextString());
+
             } else if (isSplitter(chr)) {
-                token.setNext(readNextSplitter());
-                return true;
+                prev.setNext(readNextSplitter());
+
             } else if (isOperator(chr)) {
-                token.setNext(readNextOperator());
-                return true;
+                prev.setNext(readNextOperator());
+
             } else {
-                consumeInvalidCharacters();
+                prev.setNext(readInvalidChars());
             }
+            return true;
         }
         return false;
     }
 
-    void readNextChar() {
+    private void readNextChar() {
         index = nextIndex;
         if (index >= source.length()) {
-            pChr = 0;
             chr = 0;
             nChr = 0;
         } else {
-            pChr = chr;
             chr = source.codePointAt(index);
             nextIndex = index + Character.charCount(chr);
             nChr = nextIndex < source.length() ? source.codePointAt(nextIndex) : 0;
         }
     }
 
-    int previewFutureNextChar() {
+    private int previewFutureNextChar() {
+        int n = 0;
         if (nextIndex < source.length()) {
             int next = nextIndex + Character.charCount(nChr);
-            return next < source.length() ? source.codePointAt(next) : 0;
+            n = next < source.length() ? source.codePointAt(next) : 0;
         }
-        return 0;
+        return n;
     }
 
-    void consumeSpaces() {
+    private void consumeSpaces() {
         while (!eof() && isSpace(chr)) {
             readNextChar();
         }
     }
 
-    void consumeNextLineComment() {
+    private void consumeNextLineComment() {
         readNextChar();
         readNextChar();
         while (!eof()) {
@@ -120,7 +122,7 @@ public class Lexer {
         }
     }
 
-    void consumeNextBlockComment() {
+    private void consumeNextBlockComment() {
         readNextChar();
         readNextChar();
         while (!eof()) {
@@ -133,98 +135,96 @@ public class Lexer {
         }
     }
 
-    void consumeInvalidCharacters() {
-        int start = index;
-        while (!eof() && !isValidChar(chr)) {
-            readNextChar();
-        }
-        sFile.addError(new Error(sFile, start, index, ErrorLevel.LEXER, "Invalid character"));
-    }
-
-    Token readNextBlock() {
+    private void readNextBlock(Token prev, Token owner) {
         Key openKey = Key.readKey(source, index, nextIndex);
-        Token parent = new Token(source, index, nextIndex, openKey);
+        prev.setNext(new Token(source, index, nextIndex, openKey));
+        Token parent = prev.getNext();
 
         Token token = parent;
         readNextChar();
         while (!eof()) {
-            if (readNext(token, parent)) {
+            if (readNext(token, parent, owner)) {
                 while (token.getNext() != null) {
                     token = token.getNext();
                 }
                 if (isClosure(openKey, token.getKey()) || eof()) {
-                    parent.setNextAsParent(token);
+                    parent.setNextAsChild(token);
                     break;
                 }
             } else {
+                if (openKey == Key.Generic) parent.setKey(Key.Less);
                 break;
             }
         }
-
-        return parent;
     }
 
-    private boolean isBreakCharacter(Token parent) {
+    private Token readNextCloser() {
+        int start = index;
+        readNextChar();
+        Key key = Key.readKey(source, start, index);
+        return new Token(source, start, index, key == null ? Key.InvalidOp : key);
+    }
+
+    private boolean isBreakCharacter(Token parent, Token owner) {
+        if (parent == null) return false;
+
         Key block = parent.getKey();
-        if (block == Key.Brace) return false;
         if (block == Key.Param) return chr == '}';
-        if (block == Key.Index) return chr == ')' || chr == '}';
-        if (block == Key.Generic) {
-            if (isLetter(chr) || (chr == ':' && nChr == ':' && isLetter(previewFutureNextChar()))) {
+        else if (block == Key.Index) return chr == ')' || chr == '}';
+        else if (block == Key.Generic) {
+            if (chr == '>') {
                 return false;
-            } else {
+            } else if (isLetter(chr) || (chr == ':' && nChr == ':' && isLetter(previewFutureNextChar()))) {
+                return false;
+            } else if (chr == ',') {
                 Token pPrev = parent.getPrev();
                 Key pPrevKey = pPrev != null ? pPrev.getKey() : null;
 
-                Token pPrevPrev = pPrev != null ? parent.getPrev() : null;
+                Token pPrevPrev = pPrev != null ? pPrev.getPrev() : null;
                 Key pPrevPrevKey = pPrevPrev != null ? pPrevPrev.getKey() : null;
 
-                if (chr == ',') {
-                    Token pParent = parent.getParent();
-                    Key pParentKey = pParent != null ? pParent.getKey() : null;
+                Key oKey = owner != null ? owner.getKey() : null;
 
-                    Token pParentPrev = pParent != null ? pParent.getPrev() : null;
-                    Key pParentPrevKey = pParentPrev != null ? pParentPrev.getKey() : null;
+                Token oPrev = owner != null ? owner.getPrev() : null;
+                Key oPrevKey = oPrev != null ? oPrev.getKey() : null;
 
-                    Key pParentPrevPrevKey = pParentPrev != null && pParentPrev.getPrev() != null ?
-                            pParentPrev.getPrev().getKey() : null;
+                Token oPrevPrev = oPrev != null ? oPrev.getPrev() : null;
+                Key oPrevPrevKey = oPrevPrev != null ? oPrevPrev.getKey() : null;
 
-                    if (pPrevKey == Key.Word && pParentPrevPrevKey == Key.New) {
-                        // new Type<A, B>()
-                        return false;
-                    } else if (pParentKey == Key.Param) {
-                        // method(a < b, c > d)
-                        return pParentPrevKey == Key.Word &&
-                                (pParentPrevPrevKey != Key.Word && pParentPrevPrevKey != Key.Generic);
-                    } else if (pParentKey == Key.Index) {
-                        // int this[Type<A, B> d]
-                        // Array<int> this[Type<A, B> d]
-                        return pParentPrevKey != Key.This ||
-                                (pParentPrevPrevKey != Key.Word && pParentPrevPrevKey != Key.Generic);
-                    } else if (pParentKey == Key.Brace) {
-                        // new bool[]{a < b, c > d}
-                        return (pParentPrevPrevKey == Key.Index);
-                    } else {
-                        return false;
-                    }
-                } else if (chr == ':' && isLetter(nChr)) {
-                    if (pPrevKey == Key.Word && (pPrevPrevKey == Key.Class || pPrevPrevKey == Key.Interface ||
-                            pPrevPrevKey == Key.Struct || pPrevPrevKey == Key.Enum)) {
-                        // class name <T : Type>
-                        return false;
-                    } else if (pPrevKey == Key.Word && (pPrevPrevKey == Key.Word || pPrevPrevKey == Key.Generic)) {
-                        // int method<T : Type>(T object)
-                        // Array<T> method<T : Type>(T object)
-                        return false;
-                    }
+                if (pPrevKey == Key.Word && pPrevPrevKey == Key.New) {
+                    return false;
+                } else if (oKey == Key.Param) {
+                    return oPrevKey == Key.Word &&
+                            (oPrevPrevKey != Key.Word && oPrevPrevKey != Key.Generic);
+                } else if (oKey == Key.Index) {
+                    return oPrevKey != Key.This ||
+                            (oPrevPrevKey != Key.Word && oPrevPrevKey != Key.Generic);
+                } else if (oKey == Key.Brace) {
+                    return (oPrevKey == Key.Index);
+                } else {
+                    return false;
                 }
-                return true;
+            } else if (chr == ':' && !isOperator(nChr)) {
+                Token pPrev = parent.getPrev();
+                Key pPrevKey = pPrev != null ? pPrev.getKey() : null;
+
+                Token pPrevPrev = pPrev != null ? pPrev.getPrev() : null;
+                Key pPrevPrevKey = pPrevPrev != null ? pPrevPrev.getKey() : null;
+
+                if (pPrevKey == Key.Word &&
+                        (pPrevPrevKey == Key.Class || pPrevPrevKey == Key.Interface ||
+                        pPrevPrevKey == Key.Struct || pPrevPrevKey == Key.Enum)) {
+                    return false;
+                } else if (pPrevKey == Key.Word && (pPrevPrevKey == Key.Word || pPrevPrevKey == Key.Generic)) {
+                    return false;
+                }
             }
+            return true;
         }
         return false;
     }
 
-    Token readNextWord() {
+    private Token readNextWord() {
         int start = index;
         while (!eof()) {
             if (isChar(chr)) {
@@ -242,15 +242,22 @@ public class Lexer {
         return new Token(source, start, index, key == null ? Key.Word : key);
     }
 
-    Token readNextNumber() {
+    private Token readNextNumber() {
         int start = index;
-        while (!eof() && isLiteral(chr)) {
-            readNextChar();
+        while (!eof()) {
+            if (chr == 'e' && (nChr == '-' || nChr == '+')) {
+                readNextChar();
+                readNextChar();
+            } else if (isLiteral(chr)) {
+                readNextChar();
+            } else {
+                break;
+            }
         }
         return new Token(source, start, index, Key.Number);
     }
 
-    Token readNextString() {
+    private Token readNextString() {
         int split = chr;
         int start = index;
         boolean invert = false;
@@ -268,23 +275,34 @@ public class Lexer {
         return new Token(source, start, index, Key.String);
     }
 
-    Token readNextSplitter() {
+    private Token readNextSplitter() {
         int start = index;
         readNextChar();
         Key key = Key.readKey(source, start, index);
         return new Token(source, start, index, key == null ? Key.InvalidOp : key);
     }
 
-    Token readNextOperator() {
+    private Token readNextOperator() {
         int start = index;
         while (!eof() && (isOperator(chr) || chr == '>')) {
             readNextChar();
         }
         Key key = Key.readKey(source, start, index);
-        return new Token(source, start, index, key == null ? Key.InvalidOp : key);
+        return new Token(source, start, index,
+                key == null ? Key.InvalidOp :
+                        key == Key.Generic ? Key.Less : key == Key.CGeneric ? Key.More : key);
     }
 
-    public boolean eof() {
+    private Token readInvalidChars() {
+        int start = index;
+        while (!eof() && !isValidChar(chr)) {
+            readNextChar();
+        }
+
+        return new Token(source, start, index, Key.Invalid);
+    }
+
+    private boolean eof() {
         return index >= source.length();
     }
 
@@ -300,24 +318,31 @@ public class Lexer {
         return (chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || chr == '_';
     }
 
+    private static boolean isOpener(int chr) {
+        return chr == '{' || chr == '(' || chr == '[';
+    }
+
+    private static boolean isCloser(int chr) {
+        return chr == '}' || chr == ')' || chr == ']';
+    }
+
     private static boolean isOperator(int chr) {
         return chr == '+' || chr == '-' || chr == '*' || chr == '/' || chr == '%'
                 || chr == '=' || chr == '!' || chr == '|' || chr == '&' || chr == '^' || chr == ':' || chr == '?'
-                || chr == '~' || chr == '<';
+                || chr == '~' || chr == '<' || chr == '>';
     }
 
     private static boolean isSplitter(int chr) {
-        return chr == '(' || chr == ')' || chr == '{' || chr == '}' || chr == '[' || chr == ']' || chr == '.'
-                || chr == ',' || chr == ';' || chr == '>';
+        return chr == '.' || chr == ',' || chr == ';';
     }
 
-    private static boolean isStringSplit(int chr) {
+    private static boolean isQuot(int chr) {
         return chr == '"' || chr == '\'';
     }
 
     private static boolean isValidChar(int chr) {
         return isSpace(chr) || isNumber(chr) || isLetter(chr) ||
-                isOperator(chr) || isStringSplit(chr) || isSplitter(chr);
+                isOperator(chr) || isQuot(chr) || isSplitter(chr) || isOpener(chr) || isCloser(chr);
     }
 
     private static boolean isChar(int chr) {
@@ -328,15 +353,15 @@ public class Lexer {
         return (chr >= '0' && chr <= '9') ||
                 (chr >= 'A' && chr <= 'F') ||
                 (chr >= 'a' && chr <= 'f') ||
-                chr == '.' || chr == '+' || chr == '-' ||
-                chr == 'x' || chr == 'X' ||
-                chr == 'l' || chr == 'L';
+                chr == '.' || chr == 'x' || chr == 'X' || chr == 'l' || chr == 'L';
     }
+
     private static boolean isClosure(Key open, Key current) {
-        if (open == Key.Brace) return current == Key.CBrace;
-        if (open == Key.Param) return current == Key.CParam;
-        if (open == Key.Index) return current == Key.CIndex;
-        if (open == Key.Generic) return current == Key.CGeneric;
-        return false;
+        boolean closer = false;
+        if (open == Key.Brace) closer = current == Key.CBrace;
+        else if (open == Key.Param) closer = current == Key.CParam;
+        else if (open == Key.Index) closer = current == Key.CIndex;
+        else if (open == Key.Generic) closer = current == Key.CGeneric;
+        return closer;
     }
 }

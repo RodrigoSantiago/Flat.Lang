@@ -6,7 +6,7 @@ public class Token {
     private final int end;
     private final int length;
     private final String source;
-    private final Key key;
+    private Key key;
 
     private Token next;
     private Token prev;
@@ -27,6 +27,13 @@ public class Token {
         this.end = end;
         this.length = end - start;
         this.key = key;
+    }
+
+    protected Token ownNext() {
+        if (next != null) next.prev = null;
+        Token n = next;
+        next = null;
+        return n;
     }
 
     public int getStart() {
@@ -64,7 +71,11 @@ public class Token {
         return child;
     }
 
-    public void setNextAsParent(Token blockLastChild) {
+    public Token getLastChild() {
+        return lastChild;
+    }
+
+    public void setNextAsChild(Token blockLastChild) {
         setChild(getNext());
         this.next = null;
         this.lastChild = blockLastChild;
@@ -79,6 +90,10 @@ public class Token {
 
     public Token getParent() {
         return parent;
+    }
+
+    public void setKey(Key key) {
+        this.key = key;
     }
 
     public Key getKey() {

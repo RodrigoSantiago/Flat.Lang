@@ -16,6 +16,9 @@ class TokenTest {
         assertEquals(6, token.getEnd(), "Invalid End");
         assertSame(source, token.getSource(), "Invalid Source");
         assertSame(Key.Word, token.getKey(), "Invalid Key");
+
+        token.setKey(Key.String);
+        assertSame(Key.String, token.getKey(), "Invalid Key after setKey");
     }
 
     @Test
@@ -44,6 +47,42 @@ class TokenTest {
         assertEquals(prevToken, nextToken.getPrev(),"Invalid parent token");
     }
 
+    @Test
+    void ownNext() {
+        String source1 = "parent";
+        Token prevToken = new Token(source1, 0, source1.length());
+
+        String source2 = "child";
+        Token nextToken = new Token(source2, 0, source2.length());
+
+        prevToken.setNext(nextToken);
+        assertEquals(nextToken, prevToken.getNext(), "Invalid child token");
+
+        prevToken.ownNext();
+        assertNull(prevToken.getNext(), "Invalid next token");
+        assertNull(nextToken.getPrev(), "Invalid prev token");
+    }
+
+    @Test
+    void nextAsChild() {
+        String source1 = "parent";
+        Token prevToken = new Token(source1, 0, source1.length());
+
+        String source2 = "child";
+        Token nextToken = new Token(source2, 0, source2.length());
+
+        String source3 = "end";
+        Token endToken = new Token(source3, 0, source3.length());
+
+        nextToken.setNext(endToken);
+        prevToken.setNext(nextToken);
+        prevToken.setNextAsChild(endToken);
+
+        assertEquals(nextToken, prevToken.getChild(), "Invalid child token");
+        assertEquals(endToken, prevToken.getChild().getNext(), "Invalid child next token");
+        assertEquals(endToken, prevToken.getLastChild(), "Invalid last child token");
+        assertNull(prevToken.getNext(), "Invalid parent token");
+    }
     @Test
     void equalsIgnoreCase() {
         String source1 = "Happy Day";

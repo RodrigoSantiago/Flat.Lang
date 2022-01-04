@@ -15,6 +15,14 @@ class KeyTest {
     }
 
     @Test
+    void testReadValidKeyOffset() {
+        String keyword = " true ";
+        Key actualKey = Key.readKey(keyword, 1, keyword.length() - 1);
+
+        assertEquals(Key.True, actualKey, "Incorrect keyword found");
+    }
+
+    @Test
     void testReadInvalidKeys() {
         String keyword = "###";
         Key actualKey = Key.readKey(keyword, 0, keyword.length());

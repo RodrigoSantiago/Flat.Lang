@@ -214,7 +214,7 @@ public class Key {
         int length = end - start;
         if (length <= 0 || length > 9) return null;
 
-        for (int i = 0; i < length; i++) {
+        for (int i = start; i < end; i++) {
             h = 31 * h + source.charAt(i);
         }
         Key key = keys.get(h);
@@ -233,7 +233,7 @@ public class Key {
         int len = end - start;
         if (len == key.name.length()) {
             for (int i = 0; i < len; i++) {
-                if (source.charAt(start + i) != key.name.charAt(i)) {
+                if (source.charAt(i + start) != key.name.charAt(i)) {
                     return false;
                 }
             }
